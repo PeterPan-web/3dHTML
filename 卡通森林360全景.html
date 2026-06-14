@@ -292,9 +292,29 @@
       transition: opacity 120ms ease;
     }
 
+    .companion-shape {
+      position: fixed;
+      left: 50%;
+      top: 54%;
+      z-index: 3;
+      width: min(220px, 24vw);
+      height: auto;
+      display: block;
+      transform: translate(22%, -46%);
+      object-fit: contain;
+      opacity: 0;
+      pointer-events: none;
+      filter: drop-shadow(0 16px 20px rgba(0, 0, 0, 0.28));
+      transition: opacity 120ms ease;
+    }
+
     .character.is-visible {
       opacity: 1;
       pointer-events: auto;
+    }
+
+    .companion-shape.is-visible {
+      opacity: 1;
     }
 
     .loader {
@@ -353,6 +373,11 @@
         top: 58%;
         width: min(220px, 52vw);
       }
+
+      .companion-shape {
+        top: 58%;
+        width: min(150px, 34vw);
+      }
     }
   </style>
 </head>
@@ -400,6 +425,7 @@
 
   <video class="character-source" id="mainVideo" src="character.mp4" playsinline preload="auto"></video>
   <canvas class="character" id="mainCharacter" aria-label="点击播放动画"></canvas>
+  <img class="companion-shape" id="companionShape" src="shape-companion.png" alt="">
 
   <script src="assets/panorama-data.js"></script>
   <script>
@@ -425,6 +451,7 @@
     const turnRightBtn = document.getElementById("turnRightBtn");
     const loading = document.getElementById("loading");
     const loader = document.getElementById("loader");
+    const companionShape = document.getElementById("companionShape");
     const characters = [
       makeCharacter("mainVideo", "mainCharacter", 0)
     ];
@@ -826,31 +853,86 @@
       const background = sampleBackgroundColor(pixels, width, height, cornerSize);
       const maxDistance = 42;
       const fadeDistance = 10;
-      for (let i = 0; i < pixels.length; i += 4) {
-        const red = pixels[i];
-        const green = pixels[i + 1];
-        const blue = pixels[i + 2];
-        const pixel = i / 4;
-        const x = pixel % width;
-        const y = Math.floor(pixel / width);
-        const distance = Math.hypot(red - background.red, green - background.green, blue - background.blue);
-        const brightness = (red + green + blue) / 3;
-        const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
-        if (x < width * 0.18 && y < height * 0.12) {
-          pixels[i + 3] = 0;
-        } else if (saturation < 48 && brightness > 105) {
-          pixels[i + 3] = 0;
-        } else if (distance < maxDistance) {
-          pixels[i + 3] = 0;
-        } else if (distance < maxDistance + fadeDistance) {
-          pixels[i + 3] = Math.round(((distance - maxDistance) / fadeDistance) * 255);
-        }
-      }
+      removeConnectedBackground(pixels, width, height, background, maxDistance, fadeDistance);
+      removeFootingBackground(pixels, width, height);
       context.clearRect(0, 0, width, height);
       context.putImageData(frame, 0, 0);
 
       if (!video.paused && !video.ended) {
         requestAnimationFrame(() => drawCharacter(character));
+      }
+    }
+
+    function removeConnectedBackground(pixels, width, height, background, maxDistance, fadeDistance) {
+      const visited = new Uint8Array(width * height);
+      const stack = [];
+
+      function queuePixel(x, y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        const pixel = y * width + x;
+        if (visited[pixel]) return;
+        if (!isBackgroundPixel(pixels, pixel, x, y, width, height, background, maxDistance + fadeDistance)) return;
+        visited[pixel] = 1;
+        stack.push(pixel);
+      }
+
+      for (let x = 0; x < width; x += 1) {
+        queuePixel(x, 0);
+        queuePixel(x, height - 1);
+      }
+      for (let y = 0; y < height; y += 1) {
+        queuePixel(0, y);
+        queuePixel(width - 1, y);
+      }
+
+      while (stack.length) {
+        const pixel = stack.pop();
+        const x = pixel % width;
+        const y = Math.floor(pixel / width);
+        const index = pixel * 4;
+        const red = pixels[index];
+        const green = pixels[index + 1];
+        const blue = pixels[index + 2];
+        const distance = Math.hypot(red - background.red, green - background.green, blue - background.blue);
+
+        pixels[index + 3] = distance < maxDistance
+          ? 0
+          : Math.round(((distance - maxDistance) / fadeDistance) * 255);
+
+        queuePixel(x + 1, y);
+        queuePixel(x - 1, y);
+        queuePixel(x, y + 1);
+        queuePixel(x, y - 1);
+      }
+    }
+
+    function isBackgroundPixel(pixels, pixel, x, y, width, height, background, threshold) {
+      const index = pixel * 4;
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      const distance = Math.hypot(red - background.red, green - background.green, blue - background.blue);
+      const brightness = (red + green + blue) / 3;
+      const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
+
+      return (x < width * 0.18 && y < height * 0.12) ||
+        (y > height * 0.72 && saturation < 48 && brightness > 105) ||
+        distance < threshold;
+    }
+
+    function removeFootingBackground(pixels, width, height) {
+      for (let y = Math.floor(height * 0.72); y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const index = (y * width + x) * 4;
+          const red = pixels[index];
+          const green = pixels[index + 1];
+          const blue = pixels[index + 2];
+          const brightness = (red + green + blue) / 3;
+          const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
+          if (saturation < 48 && brightness > 105) {
+            pixels[index + 3] = 0;
+          }
+        }
       }
     }
 
@@ -895,6 +977,7 @@
         const relative = normalizeAngle(character.angle + yaw);
         const visible = Math.abs(relative) < halfFov * 0.96;
         character.canvas.classList.toggle("is-visible", visible);
+        companionShape.classList.toggle("is-visible", visible);
         if (!visible) return;
 
         const x = 50 + (Math.tan(relative) / Math.tan(halfFov)) * 50;
@@ -903,6 +986,9 @@
         character.canvas.style.left = `${x}%`;
         character.canvas.style.top = `${y}%`;
         character.canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        companionShape.style.left = `${x}%`;
+        companionShape.style.top = `${y}%`;
+        companionShape.style.transform = `translate(22%, -46%) scale(${scale})`;
       });
     }
 
