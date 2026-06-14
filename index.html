@@ -29,7 +29,7 @@
       font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
       background:
         linear-gradient(135deg, rgba(12, 42, 40, 0.92), rgba(53, 48, 91, 0.74)),
-        url("assets/cartoon-forest-morning.png") center / cover fixed;
+        url("assets/cartoon-forest-morning.webp") center / cover fixed;
       color: var(--ink);
       overflow: hidden;
     }
@@ -391,7 +391,7 @@
 
     <section class="choice-grid" aria-label="森林场景">
       <button class="choice" type="button" data-pano="0">
-        <img src="assets/cartoon-forest-morning.png" alt="晨光森林">
+        <img src="assets/cartoon-forest-morning.webp" alt="晨光森林">
         <span>晨光森林</span>
       </button>
     </section>
@@ -427,12 +427,9 @@
   <canvas class="character" id="mainCharacter" aria-label="点击播放动画"></canvas>
   <img class="companion-shape" id="companionShape" src="shape-companion.png" alt="">
 
-  <script src="assets/panorama-data.js"></script>
   <script>
     const panoramas = [
-      { key: "morning", name: "晨光森林", thumb: "assets/cartoon-forest-morning.png" },
-      { key: "mushroom", name: "蘑菇森林", thumb: "assets/cartoon-forest-mushroom.png" },
-      { key: "autumn", name: "秋天森林", thumb: "assets/cartoon-forest-autumn.png" }
+      { name: "晨光森林", thumb: "assets/cartoon-forest-morning.webp" }
     ];
 
     const directions = ["正前", "右前", "右侧", "右后", "后方", "左后", "左侧", "左前"];
@@ -694,7 +691,7 @@
       image.onerror = () => {
         loader.textContent = "图片未找到";
       };
-      image.src = window.PANORAMA_DATA?.[scene.key] || scene.thumb;
+      image.src = scene.thumb;
     }
 
     function render() {
