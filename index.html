@@ -279,7 +279,7 @@
       left: 50%;
       top: 54%;
       z-index: 3;
-      width: min(300px, 32vw);
+      width: min(260px, 27vw);
       height: auto;
       display: block;
       transform: translate(-50%, -50%);
@@ -297,7 +297,7 @@
       left: 50%;
       top: 54%;
       z-index: 3;
-      width: min(220px, 24vw);
+      width: min(190px, 20vw);
       height: auto;
       display: block;
       transform: translate(22%, -46%);
@@ -980,8 +980,8 @@
         companionShape.classList.toggle("is-visible", visible);
         if (!visible) return;
 
-        const x = 50 + (Math.tan(relative) / Math.tan(halfFov)) * 50;
-        const y = 54 + (pitch / (Math.PI / 2)) * 42;
+        const x = 76 + (Math.tan(relative) / Math.tan(halfFov)) * 50;
+        const y = 67 + (pitch / (Math.PI / 2)) * 42;
         const scale = 1 - Math.min(Math.abs(relative) / halfFov, 1) * 0.12;
         character.canvas.style.left = `${x}%`;
         character.canvas.style.top = `${y}%`;
