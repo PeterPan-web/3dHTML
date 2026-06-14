@@ -398,14 +398,8 @@
     </div>
   </section>
 
-  <video class="character-source" id="cylinderVideo" src="圆柱体.mp4" playsinline preload="auto"></video>
-  <video class="character-source" id="sphereVideo" src="球体 (1).mp4" playsinline preload="auto"></video>
-  <video class="character-source" id="cubeVideo" src="正方体 (1).mp4" playsinline preload="auto"></video>
-  <video class="character-source" id="cuboidVideo" src="长方体 (2).mp4" playsinline preload="auto"></video>
-  <canvas class="character" id="cylinderCharacter" aria-label="点击播放圆柱体动画"></canvas>
-  <canvas class="character" id="sphereCharacter" aria-label="点击播放球体动画"></canvas>
-  <canvas class="character" id="cubeCharacter" aria-label="点击播放正方体动画"></canvas>
-  <canvas class="character" id="cuboidCharacter" aria-label="点击播放长方体动画"></canvas>
+  <video class="character-source" id="mainVideo" src="character.mp4" playsinline preload="auto"></video>
+  <canvas class="character" id="mainCharacter" aria-label="点击播放动画"></canvas>
 
   <script src="assets/panorama-data.js"></script>
   <script>
@@ -432,10 +426,7 @@
     const loading = document.getElementById("loading");
     const loader = document.getElementById("loader");
     const characters = [
-      makeCharacter("cylinderVideo", "cylinderCharacter", 0),
-      makeCharacter("sphereVideo", "sphereCharacter", -Math.PI / 2),
-      makeCharacter("cubeVideo", "cubeCharacter", Math.PI / 2),
-      makeCharacter("cuboidVideo", "cuboidCharacter", Math.PI)
+      makeCharacter("mainVideo", "mainCharacter", 0)
     ];
 
     let gl;
@@ -843,7 +834,11 @@
         const x = pixel % width;
         const y = Math.floor(pixel / width);
         const distance = Math.hypot(red - background.red, green - background.green, blue - background.blue);
+        const brightness = (red + green + blue) / 3;
+        const saturation = Math.max(red, green, blue) - Math.min(red, green, blue);
         if (x < width * 0.18 && y < height * 0.12) {
+          pixels[i + 3] = 0;
+        } else if (saturation < 48 && brightness > 105) {
           pixels[i + 3] = 0;
         } else if (distance < maxDistance) {
           pixels[i + 3] = 0;
