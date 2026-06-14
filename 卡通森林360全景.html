@@ -270,11 +270,11 @@
       display: grid;
     }
 
-    .front-source {
+    .character-source {
       display: none;
     }
 
-    .front-character {
+    .character {
       position: fixed;
       left: 50%;
       top: 54%;
@@ -285,8 +285,16 @@
       transform: translate(-50%, -50%);
       object-fit: contain;
       cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
       touch-action: manipulation;
       filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.36));
+      transition: opacity 120ms ease;
+    }
+
+    .character.is-visible {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .loader {
@@ -341,7 +349,7 @@
         height: 40px;
       }
 
-      .front-character {
+      .character {
         top: 58%;
         width: min(220px, 52vw);
       }
@@ -390,8 +398,14 @@
     </div>
   </section>
 
-  <video class="front-source" id="frontVideo" src="圆柱体.mp4" playsinline preload="auto" loop></video>
-  <canvas class="front-character" id="frontCharacter" aria-label="点击播放动画"></canvas>
+  <video class="character-source" id="cylinderVideo" src="圆柱体.mp4" playsinline preload="auto" loop></video>
+  <video class="character-source" id="sphereVideo" src="球体 (1).mp4" playsinline preload="auto" loop></video>
+  <video class="character-source" id="cubeVideo" src="正方体 (1).mp4" playsinline preload="auto" loop></video>
+  <video class="character-source" id="cuboidVideo" src="长方体 (2).mp4" playsinline preload="auto" loop></video>
+  <canvas class="character" id="cylinderCharacter" aria-label="点击播放圆柱体动画"></canvas>
+  <canvas class="character" id="sphereCharacter" aria-label="点击播放球体动画"></canvas>
+  <canvas class="character" id="cubeCharacter" aria-label="点击播放正方体动画"></canvas>
+  <canvas class="character" id="cuboidCharacter" aria-label="点击播放长方体动画"></canvas>
 
   <script src="assets/panorama-data.js"></script>
   <script>
@@ -417,11 +431,12 @@
     const turnRightBtn = document.getElementById("turnRightBtn");
     const loading = document.getElementById("loading");
     const loader = document.getElementById("loader");
-    const frontVideo = document.getElementById("frontVideo");
-    const frontCharacter = document.getElementById("frontCharacter");
-    const frontContext = frontCharacter.getContext("2d", { willReadFrequently: true });
-    const frameCanvas = document.createElement("canvas");
-    const frameContext = frameCanvas.getContext("2d", { willReadFrequently: true });
+    const characters = [
+      makeCharacter("cylinderVideo", "cylinderCharacter", 0),
+      makeCharacter("sphereVideo", "sphereCharacter", -Math.PI / 2),
+      makeCharacter("cubeVideo", "cubeCharacter", Math.PI / 2),
+      makeCharacter("cuboidVideo", "cuboidCharacter", Math.PI)
+    ];
 
     let gl;
     let program;
@@ -670,6 +685,7 @@
       resize();
       yaw += (targetYaw - yaw) * 0.16;
       pitch += (targetPitch - pitch) * 0.16;
+      updateCharacterPositions();
       gl.clearColor(0.015, 0.06, 0.055, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.useProgram(program);
@@ -782,19 +798,37 @@
       if (event.key === "ArrowRight") setDirection(directionIndex + 1);
     });
 
-    function drawFrontCharacter() {
-      const width = frontVideo.videoWidth;
-      const height = frontVideo.videoHeight;
+    function makeCharacter(videoId, canvasId, angle) {
+      const video = document.getElementById(videoId);
+      const canvas = document.getElementById(canvasId);
+      return {
+        video,
+        canvas,
+        angle,
+        context: canvas.getContext("2d", { willReadFrequently: true }),
+        frameCanvas: document.createElement("canvas"),
+        frameContext: null
+      };
+    }
+
+    characters.forEach((character) => {
+      character.frameContext = character.frameCanvas.getContext("2d", { willReadFrequently: true });
+    });
+
+    function drawCharacter(character) {
+      const { video, canvas, context, frameCanvas, frameContext } = character;
+      const width = video.videoWidth;
+      const height = video.videoHeight;
       if (!width || !height) return;
 
-      if (frontCharacter.width !== width || frontCharacter.height !== height) {
-        frontCharacter.width = width;
-        frontCharacter.height = height;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
         frameCanvas.width = width;
         frameCanvas.height = height;
       }
 
-      frameContext.drawImage(frontVideo, 0, 0, width, height);
+      frameContext.drawImage(video, 0, 0, width, height);
       const frame = frameContext.getImageData(0, 0, width, height);
       const pixels = frame.data;
       const cornerSize = Math.max(4, Math.floor(Math.min(width, height) * 0.04));
@@ -817,11 +851,11 @@
           pixels[i + 3] = Math.round(((distance - maxDistance) / fadeDistance) * 255);
         }
       }
-      frontContext.clearRect(0, 0, width, height);
-      frontContext.putImageData(frame, 0, 0);
+      context.clearRect(0, 0, width, height);
+      context.putImageData(frame, 0, 0);
 
-      if (!frontVideo.paused && !frontVideo.ended) {
-        requestAnimationFrame(drawFrontCharacter);
+      if (!video.paused && !video.ended) {
+        requestAnimationFrame(() => drawCharacter(character));
       }
     }
 
@@ -856,15 +890,38 @@
       };
     }
 
-    frontVideo.addEventListener("loadeddata", drawFrontCharacter);
-    frontVideo.addEventListener("play", drawFrontCharacter);
-    frontVideo.addEventListener("seeked", drawFrontCharacter);
-    frontCharacter.addEventListener("click", () => {
-      if (frontVideo.paused) {
-        frontVideo.play();
-      } else {
-        frontVideo.pause();
-      }
+    function normalizeAngle(angle) {
+      return Math.atan2(Math.sin(angle), Math.cos(angle));
+    }
+
+    function updateCharacterPositions() {
+      const halfFov = 74 * Math.PI / 360;
+      characters.forEach((character) => {
+        const relative = normalizeAngle(character.angle + yaw);
+        const visible = Math.abs(relative) < halfFov * 0.96;
+        character.canvas.classList.toggle("is-visible", visible);
+        if (!visible) return;
+
+        const x = 50 + (Math.tan(relative) / Math.tan(halfFov)) * 50;
+        const y = 54 + (pitch / (Math.PI / 2)) * 42;
+        const scale = 1 - Math.min(Math.abs(relative) / halfFov, 1) * 0.12;
+        character.canvas.style.left = `${x}%`;
+        character.canvas.style.top = `${y}%`;
+        character.canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      });
+    }
+
+    characters.forEach((character) => {
+      character.video.addEventListener("loadeddata", () => drawCharacter(character));
+      character.video.addEventListener("play", () => drawCharacter(character));
+      character.video.addEventListener("seeked", () => drawCharacter(character));
+      character.canvas.addEventListener("click", () => {
+        if (character.video.paused) {
+          character.video.play();
+        } else {
+          character.video.pause();
+        }
+      });
     });
 
     openScene(0);
